@@ -9,7 +9,7 @@ The given template function calculates the disparity map given 2 stereo images.
     - parse cmake lists using ```cmake ..```
     - make target using ```make```
 - The new binary can be used as follows:
-    - goto the root directory
+    - **goto the root directory**
     - ```./build/disparity <image_left> <image_right> <max_disparity>```
     - all the arguments are optional and you can have the following variations:
         - ```./build/disparity```

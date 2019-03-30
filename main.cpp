@@ -10,11 +10,11 @@ int main(int argc, char** argv) {
         int nr = strlen("images/right.png");
         fr_left = new char[nl+1]; strcpy(fr_left, "images/left.png");
         fr_right = new char[nr+1]; strcpy(fr_right, "images/right.png");
-        max_disparity = 20;
+        max_disparity = 64;
     }
 
     else if (argc==3) {
-        fr_left = argv[1]; fr_right = argv[2]; max_disparity = 20;
+        fr_left = argv[1]; fr_right = argv[2]; max_disparity = 64;
     }
 
     else if (argc==4) {

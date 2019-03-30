@@ -1,10 +1,11 @@
 #include "disparity.h"
 
 // Constructor
-Disparity::Disparity(cv::Mat left, cv::Mat right, int disp) {
+Disparity::Disparity(cv::Mat left, cv::Mat right, int disp, int k_rad) {
     this->fr_left = left;
     this->fr_right = right;
     this->max_disp = disp;
+    this->k_size = k_rad;
 }
 
 // Default Destructor
@@ -34,39 +35,42 @@ cv::Mat Disparity::shift(cv::Mat& frame, int x = 0, int y = 0) {
 }
 
 cv::Mat Disparity::imfilter(cv::Mat& frame, cv::Mat& kernel) {
-    cv::Mat result = cv::Mat(frame.size(), CV_64FC3);
+    cv::Mat result = cv::Mat::zeros(frame.size(), frame.type());
     cv::filter2D(frame, result, -1, kernel, cv::Point(-1,-1), 0.0, cv::BORDER_CONSTANT);
     return result;
 }
 
 // algorithm proceeds as per the following tutorial
 // https://sites.google.com/site/5kk73gpu2010/assignments/stereo-vision#TOC-Update-Disparity-Map
-void Disparity::calcDisparityMap() {
+cv::Mat Disparity::calcDisparityMap() {
 
     // define kernel with appropriate size
-    int size_ = 2*KERNEL_RADIUS + 1; double value_ = 1.0/double(size_);
-    std::vector<std::vector<double>> kernel_( size_, std::vector<double> (size_, value_) );
-    cv::Mat kernel(size_, size_, CV_32F, &kernel_);
+    int size_ = 2*this->k_size + 1;
+    cv::Mat kernel = cv::Mat::ones( size_, size_, CV_32F )/ (float)(size_);
 
     // calculate SAD for all levels of shift
-    std::vector<cv::Mat> disp_maps(this->max_disp);
-    for(int k = 0; k < this->max_disp; k++) {
-        cv::Mat r_shifted = Disparity::shift(this->fr_right, 100);
+    std::vector<cv::Mat> maps_(this->max_disp);
+    for(int k = 1; k <= this->max_disp; k++) {
+        cv::Mat r_shifted = Disparity::shift(this->fr_right, k);
         cv::Mat r_diff; cv::absdiff(this->fr_left, r_shifted, r_diff);
         cv::Mat r_filtered = Disparity::imfilter(r_diff, kernel);
-        disp_maps[k] = r_filtered;
+        maps_[k-1] = r_filtered;
     }
 
     // calculate final disparity map by calculating minimums
-    this->disp_map = cv::Mat::ones(this->fr_left.size(), CV_64FC3)*(double)(2.0);
+    cv::Mat result = this->fr_left;
+
+    double max_val = (double)INT_MIN;
     for(int row = 0; row < this->fr_left.rows; row++) {
         for(int col = 0 ; col < this->fr_left.cols; col++) {
-            printf("(%d,%d) : %f\n", row, col, this->disp_map.at<double>(row,col));
-        //     for(int k = 0; k < this->max_disp ; k++)
-        //         MIN = std::min(MIN, disp_maps[k].at<double>(row,col));
-        //     this->disp_map.at<double>(row,col) = MIN;
+            double min_val = (double)INT_MAX;
+            for(int k = 0; k < this->max_disp ; k++)
+                min_val = std::min(min_val, maps_[k].at<double>(row,col));
+            result.at<double>(row,col) = min_val;
+            max_val = std::max(min_val, max_val);
         }
     }
+    return result;
 }
 
 void Disparity::setFrames(cv::Mat left, cv::Mat right) {
@@ -76,16 +80,11 @@ void Disparity::setFrames(cv::Mat left, cv::Mat right) {
 
 cv::Mat Disparity::getDisparityMap() {
     // error checking block
-    if( ! this->fr_left.data || ! this->fr_right.data ) {
-        std::cerr<<"Could not open image"<<std::endl;
-    }
-    else if( this->fr_left.cols!=this->fr_right.cols || this->fr_left.rows!=this->fr_right.rows ) {
-        std::cerr<<"Images are not the same size"<<std::endl;
-    }
+    if( this->fr_left.cols!=this->fr_right.cols || this->fr_left.rows!=this->fr_right.rows )
+        throw std::invalid_argument("Images are not the same size");
     else {
         Disparity::preprocessFrame(this->fr_left);
         Disparity::preprocessFrame(this->fr_right);
-        Disparity::calcDisparityMap();
+        return Disparity::calcDisparityMap();
     }
-    return this->disp_map;
 }

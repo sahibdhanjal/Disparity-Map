@@ -15,19 +15,21 @@ Disparity::~Disparity() {
 * Preprocess for disparity calculation
 * - convert to grayscale
 * - equalize histogram
+* - convert to grayscale
 * - gaussian blur
 */
 void Disparity::preprocessFrame(cv::Mat& frame) {
     cv::cvtColor(frame, frame, cv::COLOR_BGR2GRAY);
     cv::equalizeHist(frame, frame);
+    frame.convertTo(frame, CV_64FC3, 1.0/255.0);
     cv::GaussianBlur(frame, frame, cv::Size(5,5), 0);
 }
 
-// Shifts image by x,y
+// Shifts image by x,y towards right and bottom
 cv::Mat Disparity::shift(cv::Mat& frame, int x = 0, int y = 0) {
     int rows = frame.rows, cols = frame.cols;
     cv::Mat out = cv::Mat::zeros(frame.size(), frame.type());
-    frame(cv::Rect(x,y, frame.cols-x,frame.rows-y)).copyTo(out(cv::Rect(0,0,frame.cols-x,frame.rows-y)));
+    frame(cv::Rect(0,0, frame.cols-x,frame.rows-y)).copyTo(out(cv::Rect(x,y,frame.cols-x,frame.rows-y)));
     return out;
 }
 
@@ -45,7 +47,7 @@ void Disparity::calcDisparityMap() {
     // define kernel with appropriate size
     int size_ = 2*KERNEL_RADIUS + 1; double value_ = 1.0/double(size_);
     std::vector<std::vector<double>> kernel_( size_, std::vector<double> (size_, value_) );
-    cv::Mat kernel(size_, size_, CV_32FC1, &kernel_);
+    cv::Mat kernel(size_, size_, CV_64FC3, &kernel_);
 
     // calculate SAD for all levels of shift
     std::vector<cv::Mat> disp_maps(this->max_disp);
@@ -60,10 +62,10 @@ void Disparity::calcDisparityMap() {
     this->disp_map = cv::Mat(this->fr_left.size(), CV_32FC1);
     for(int row = 0; row < this->fr_left.rows; row++) {
         for(int col = 0 ; col < this->fr_left.cols; col++) {
-            float MIN = INT_MAX;
+            double MIN = 2;
             for(int k = 0; k < 1 ; k++)
-                MIN = std::min(MIN, disp_maps[k].at<float>(row,col));
-            this->disp_map.at<float>(row,col) = MIN;
+                MIN = std::min(MIN, disp_maps[k].at<double>(row,col));
+            this->disp_map.at<double>(row,col) = MIN;
         }
     }
 }
@@ -84,7 +86,7 @@ cv::Mat Disparity::getDisparityMap() {
     else {
         Disparity::preprocessFrame(this->fr_left);
         Disparity::preprocessFrame(this->fr_right);
-        Disparity::calcDisparityMap();
+        // Disparity::calcDisparityMap();
     }
     return this->disp_map;
 }

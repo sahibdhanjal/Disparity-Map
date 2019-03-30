@@ -34,9 +34,8 @@ cv::Mat Disparity::shift(cv::Mat& frame, int x = 0, int y = 0) {
 }
 
 cv::Mat Disparity::imfilter(cv::Mat& frame, cv::Mat& kernel) {
-    cv::Mat result = cv::Mat(frame.size(), frame.type());
-    cv::Point anchor(0,0); double delta = 0; int depth = -1;
-    cv::filter2D(frame, result, depth, kernel, anchor, cv::BORDER_CONSTANT, cv::BORDER_CONSTANT);
+    cv::Mat result = cv::Mat(frame.size(), CV_64FC3);
+    cv::filter2D(frame, result, -1, kernel, cv::Point(-1,-1), 0.0, cv::BORDER_CONSTANT);
     return result;
 }
 
@@ -47,25 +46,25 @@ void Disparity::calcDisparityMap() {
     // define kernel with appropriate size
     int size_ = 2*KERNEL_RADIUS + 1; double value_ = 1.0/double(size_);
     std::vector<std::vector<double>> kernel_( size_, std::vector<double> (size_, value_) );
-    cv::Mat kernel(size_, size_, CV_64FC3, &kernel_);
+    cv::Mat kernel(size_, size_, CV_32F, &kernel_);
 
     // calculate SAD for all levels of shift
     std::vector<cv::Mat> disp_maps(this->max_disp);
     for(int k = 0; k < this->max_disp; k++) {
-        cv::Mat shifted_left = Disparity::shift(this->fr_left, k);
-        cv::Mat diffImage; cv::absdiff(shifted_left, this->fr_right, diffImage);
-        cv::Mat filtered_left = Disparity::imfilter(diffImage, kernel);
-        disp_maps[k] = filtered_left;
+        cv::Mat r_shifted = Disparity::shift(this->fr_right, 100);
+        cv::Mat r_diff; cv::absdiff(this->fr_left, r_shifted, r_diff);
+        cv::Mat r_filtered = Disparity::imfilter(r_diff, kernel);
+        disp_maps[k] = r_filtered;
     }
 
     // calculate final disparity map by calculating minimums
-    this->disp_map = cv::Mat(this->fr_left.size(), CV_32FC1);
+    this->disp_map = cv::Mat::ones(this->fr_left.size(), CV_64FC3)*(double)(2.0);
     for(int row = 0; row < this->fr_left.rows; row++) {
         for(int col = 0 ; col < this->fr_left.cols; col++) {
-            double MIN = 2;
-            for(int k = 0; k < 1 ; k++)
-                MIN = std::min(MIN, disp_maps[k].at<double>(row,col));
-            this->disp_map.at<double>(row,col) = MIN;
+            printf("(%d,%d) : %f\n", row, col, this->disp_map.at<double>(row,col));
+        //     for(int k = 0; k < this->max_disp ; k++)
+        //         MIN = std::min(MIN, disp_maps[k].at<double>(row,col));
+        //     this->disp_map.at<double>(row,col) = MIN;
         }
     }
 }
@@ -86,7 +85,7 @@ cv::Mat Disparity::getDisparityMap() {
     else {
         Disparity::preprocessFrame(this->fr_left);
         Disparity::preprocessFrame(this->fr_right);
-        // Disparity::calcDisparityMap();
+        Disparity::calcDisparityMap();
     }
     return this->disp_map;
 }

@@ -16,7 +16,7 @@ Disparity::~Disparity() {
 * Preprocess for disparity calculation
 * - convert to grayscale
 * - equalize histogram
-* - convert to grayscale
+* - convert to dtype - double type
 * - gaussian blur
 */
 void Disparity::preprocessFrame(cv::Mat& frame) {

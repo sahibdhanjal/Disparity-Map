@@ -39,5 +39,17 @@ int main(int argc, char** argv) {
     cv::imshow( "Disparity Map", disp_map );
     cv::waitKey(0);
 
+    try {
+        // convert to 8-bit image and save as png
+        disp_map.convertTo(disp_map, CV_8UC1,255);
+        cv::imwrite("disparity_map.png", disp_map);
+    }
+    catch (std::runtime_error& ex) {
+        fprintf(stderr, "Exception converting image to PNG format: %s\n", ex.what());
+        return -1;
+    }
+
+    std::cout<<"Image written to disparity_map.png"<<std::endl;
+
     return 0;
 }
